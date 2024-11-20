@@ -186,7 +186,8 @@
             if (username) {
                 login.style.display = 'none';
                 connected.style.display = 'block';
-                const socket = new WebSocket(`ws://${window.location.host}/ws`);
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
                 socket.onopen = event => {
                     console.log('Connection opened:', event);
                     socket.send(JSON.stringify({ username }));
