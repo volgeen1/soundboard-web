@@ -153,7 +153,6 @@
         const refreshButton = document.getElementById('refresh');
         const clientList = document.getElementById('client-list');
         const clientsDiv = document.querySelector('.clients');
-        var username = document.getElementById('name').value;
         const siteurl = window.location.origin;
 
         refreshButton.addEventListener('click', () => {
@@ -178,6 +177,7 @@
                 })
                 .catch(error => console.error('Error fetching clients:', error));
         });
+
         const connectButton = document.getElementById('connect');
         const login = document.querySelector('.login');
         const connected = document.querySelector('.connected');
@@ -195,14 +195,13 @@
                 socket.onmessage = event => {
                     const message = JSON.parse(event.data);
                     console.log("received from username: ", message.username);
-                    // if the message.username is not muted in the client list, return
                     if (document.getElementById('muted') !== null && document.getElementById('muted').textContent === message.username) {
                         return;
                     }
                     refreshSoundList();
                     const soundFile = new Uint8Array(message.sound.data);
                     console.log('Received sound:', soundFile);
-                    const audioBlob = new Blob([soundFile]); // Change MIME type if necessary
+                    const audioBlob = new Blob([soundFile]);
                     const audioUrl = URL.createObjectURL(audioBlob);
                     console.log('Audio URL:', audioUrl);
                     const audio = new Audio(audioUrl);
@@ -245,69 +244,45 @@
                     .catch(error => {
                         console.error('Error uploading file:', error);
                         alert('Error uploading file: ' + error.message);
-                    })
-                    .then(data => {
-                        console.log('File uploaded:', data);
-                    })
-                    .catch(error => console.error('Error uploading file:', error));
+                    });
             });
             fileInput.click();
         });
-        
+
         document.addEventListener("DOMContentLoaded", () => {
-        fetch(siteurl + "/api/sounds")
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log(data);
-                const soundList = document.getElementById('sound-list');
-                for (const sound in data) {
-                    const listItem = document.createElement('button');
-                    const extension = data[sound];
-                    listItem.textContent = sound;
-                    listItem.addEventListener('click', () => playSound(sound, extension));
-                    listItem.style.display = 'block';
-                    soundList.appendChild(listItem);
-                }
-            })
-            .catch(error => console.error('Error fetching sounds:', error));
+            refreshSoundList();
         });
 
         function refreshSoundList() {
             fetch(siteurl + "/api/sounds")
-            .then(response => {
-                if (!response.ok) {
-                throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log(data);
-                const soundList = document.getElementById('sound-list');
-                const currentSounds = Array.from(soundList.children).map(button => button.textContent);
-                const newSounds = Object.keys(data);
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data);
+                    const soundList = document.getElementById('sound-list');
+                    const currentSounds = Array.from(soundList.children).map(button => button.textContent);
+                    const newSounds = Object.keys(data);
 
-                if (JSON.stringify(currentSounds) === JSON.stringify(newSounds)) {
-                return; // No changes, do nothing
-                }
+                    if (JSON.stringify(currentSounds) === JSON.stringify(newSounds)) {
+                        return; // No changes, do nothing
+                    }
 
-                soundList.innerHTML = '';
-                for (const sound in data) {
-                const listItem = document.createElement('button');
-                const extension = data[sound];
-                listItem.textContent = sound;
-                listItem.addEventListener('click', () => playSound(sound, extension));
-                listItem.style.display = 'block';
-                soundList.appendChild(listItem);
-                }
-            })
-            .catch(error => console.error('Error fetching sounds:', error));
+                    soundList.innerHTML = '';
+                    for (const sound in data) {
+                        const listItem = document.createElement('button');
+                        const extension = data[sound];
+                        listItem.textContent = sound;
+                        listItem.addEventListener('click', () => playSound(sound, extension));
+                        listItem.style.display = 'block';
+                        soundList.appendChild(listItem);
+                    }
+                })
+                .catch(error => console.error('Error fetching sounds:', error));
         }
-        
 
         function playSound(sound, extension) {
             const username = document.getElementById('name').value;
