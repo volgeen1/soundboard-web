@@ -3,15 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const ws = require('ws');
 const http = require('http');
+const cors = require('cors');
 const multer = require('multer');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-var connected_sockets = {}; // Corrected typo
+var connected_sockets = {};
 
-// Create a WebSocket server
-const wss = new ws.Server({ noServer: true });
+// Enable CORS
+app.use(cors());
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -23,50 +24,37 @@ app.get('/', (req, res) => {
 
 // Route for getting the list of connected clients
 app.get('/api/clients', (req, res) => {
-    // Get the list of connected clients
     const clients = Object.keys(connected_sockets);
-    // Send the list of clients as JSON
     res.json(clients);
 });
 
 // Route for the sounds list
 app.get('/api/sounds', (req, res) => {
-    // Get the sounds from the sounds folder
     const sounds = fs.readdirSync(path.join(__dirname, 'sounds'));
-    // Create a data object with the sounds
     var data = {};
     for (var i = 0; i < sounds.length; i++) {
-        // separate the file extension from the sound name
         const extension = sounds[i].split('.')[1];
         sounds[i] = sounds[i].split('.')[0];
-        // Add the sound to the data object
         data[sounds[i]] = extension;
     }
-    // Send the data object as JSON
     res.json(data);
 });
 
 // Route for play sound request
 app.get('/api/play/sound/:sound/:extension/:username', (req, res) => {
     console.log('sending sound');
-    // Get the sound name from the URL parameter
     const sound = req.params.sound.replace(/%20/g, ' ');
     const extension = req.params.extension;
     console.log(sound + '.' + extension);
-    // Get the sound file path
     const soundFile = path.join(__dirname, 'sounds', `${sound}.${extension}`);
-    // Check if the sound file exists
     if (fs.existsSync(soundFile)) {
-        // Play the sound via the WebSocket server
         for (var key in connected_sockets) {
-            // Send the sound file to all connected clients
             const soundData = fs.readFileSync(soundFile);
             const data = { sound: soundData, username: req.params.username };
             connected_sockets[key].send(JSON.stringify(data));
         }
         res.status(200).send('Sound played');
     } else {
-        // Send a 404 response if the sound file does not exist
         res.status(404).send('Sound not found');
     }
 });
@@ -80,7 +68,6 @@ app.post('/api/upload/sound', upload.single('file'), (req, res) => {
         return res.status(400).send('No file uploaded.');
     }
 
-    // Rename the file to its original name
     const oldPath = req.file.path;
     const newPath = path.join(__dirname, 'sounds', req.file.originalname);
 
@@ -93,6 +80,9 @@ app.post('/api/upload/sound', upload.single('file'), (req, res) => {
 });
 
 const server = http.createServer(app);
+
+// Create a WebSocket server
+const wss = new ws.Server({ noServer: true });
 
 wss.on('connection', (ws) => {
     console.log('Client connected');
