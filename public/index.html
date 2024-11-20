@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soundboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        .connected {
+            display: none;
+        }
+
+        .login, .sounds, .clients .utility {
+            display: inline-block;
+            vertical-align: top;
+            width: 48%;
+            margin: 1%;
+        }
+
+        .login {
+            text-align: center;
+            display: block;
+            margin-top: 20%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .sounds {
+            float: left;
+        }
+
+        .clients {
+            margin-top: 20px;
+            margin-right: 10px;
+            float: right;
+            min-width: 40%;
+        }
+
+        .utility {
+            margin-top: 20px;
+            margin-right: 10px;
+            clear: both;
+            float: right;
+            min-width: 40%;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #unmuted {
+            background-color: #28a745;
+        }
+
+        #unmuted:hover {
+            background-color: #218838;
+        }
+
+        #muted {
+            background-color: #ffc107;
+        }
+
+        #muted:hover {
+            background-color: #e0a800;
+        }
+
+        #disconnect {
+            width: 100%;
+            background-color: #dc3545;
+        }
+
+        #disconnect:hover {
+            background-color: #c82333;
+        }
+
+        #client-list {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #180303;
+        }
+    </style>
+</head>
+<body>
+    <div class="login">
+        <h1>Connect to the soundboard</h1>
+        <input type="text" id="name" placeholder="Enter your name">
+        <button id="connect">Connect</button>
+    </div>
+
+    <div class="connected">
+        <div class="sounds">
+            <h1>Soundboard</h1>
+            <p>Click a sound to play it</p>
+            <ul id="sound-list"></ul>
+        </div>
+
+        <div class="clients">
+            <h2>Connected Clients</h2>
+            <button id="refresh">Refresh</button>
+            <ul id="client-list"></ul>
+        </div>
+
+        <div class="utility">
+            <label for="volume">Volume:</label>
+            <input type="range" id="volume" name="volume" min="0" max="100" value="50">
+            <button id="upload">upload sound</button>
+            <button id="disconnect">Disconnect</button>
+        </div>
+    </div>
+
+
+    <script>
+        const refreshButton = document.getElementById('refresh');
+        const clientList = document.getElementById('client-list');
+        const clientsDiv = document.querySelector('.clients');
+        var username = document.getElementById('name').value;
+        const siteurl = window.location.origin;
+
+        refreshButton.addEventListener('click', () => {
+            fetch(siteurl + "/api/clients")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    clientList.innerHTML = '';
+                    data.forEach(client => {
+                        const button = document.createElement('button');
+                        button.textContent = client;
+                        button.id = "unmuted";
+                        button.addEventListener('click', () => {
+                            button.id = 'muted' === button.id ? 'unmuted' : 'muted';
+                        });
+                        clientList.appendChild(button);
+                    });
+                })
+                .catch(error => console.error('Error fetching clients:', error));
+        });
+        const connectButton = document.getElementById('connect');
+        const login = document.querySelector('.login');
+        const connected = document.querySelector('.connected');
+        connectButton.addEventListener('click', () => {
+            const username = document.getElementById('name').value;
+            if (username) {
+                login.style.display = 'none';
+                connected.style.display = 'block';
+                const socket = new WebSocket(`ws://${window.location.host}/ws`);
+                socket.onopen = event => {
+                    console.log('Connection opened:', event);
+                    socket.send(JSON.stringify({ username }));
+                    refreshButton.click();
+                };
+                socket.onmessage = event => {
+                    const message = JSON.parse(event.data);
+                    console.log("received from username: ", message.username);
+                    // if the message.username is not muted in the client list, return
+                    if (document.getElementById('muted') !== null && document.getElementById('muted').textContent === message.username) {
+                        return;
+                    }
+                    refreshSoundList();
+                    const soundFile = new Uint8Array(message.sound.data);
+                    console.log('Received sound:', soundFile);
+                    const audioBlob = new Blob([soundFile]); // Change MIME type if necessary
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    console.log('Audio URL:', audioUrl);
+                    const audio = new Audio(audioUrl);
+                    audio.volume = document.getElementById('volume').value / 100;
+                    audio.play().catch(error => console.error('Error playing audio:', error));
+                };
+                socket.onclose = event => {
+                    console.log('Connection closed:', event);
+                    login.style.display = 'block';
+                    connected.style.display = 'none';
+                };
+                const disconnectButton = document.getElementById('disconnect');
+                disconnectButton.addEventListener('click', () => {
+                    socket.close();
+                    location.reload();
+                });
+            }
+        });
+
+        const uploadButton = document.getElementById('upload');
+        uploadButton.addEventListener('click', () => {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'audio/*';
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                fetch(siteurl + '/api/upload/sound', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok, error code: ' + response.status);
+                        }
+                        refreshSoundList();
+                        alert('File uploaded successfully.');
+                    })
+                    .catch(error => {
+                        console.error('Error uploading file:', error);
+                        alert('Error uploading file: ' + error.message);
+                    })
+                    .then(data => {
+                        console.log('File uploaded:', data);
+                    })
+                    .catch(error => console.error('Error uploading file:', error));
+            });
+            fileInput.click();
+        });
+        
+        document.addEventListener("DOMContentLoaded", () => {
+        fetch(siteurl + "/api/sounds")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data);
+                const soundList = document.getElementById('sound-list');
+                for (const sound in data) {
+                    const listItem = document.createElement('button');
+                    const extension = data[sound];
+                    listItem.textContent = sound;
+                    listItem.addEventListener('click', () => playSound(sound, extension));
+                    listItem.style.display = 'block';
+                    soundList.appendChild(listItem);
+                }
+            })
+            .catch(error => console.error('Error fetching sounds:', error));
+        });
+
+        function refreshSoundList() {
+            fetch(siteurl + "/api/sounds")
+            .then(response => {
+                if (!response.ok) {
+                throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data);
+                const soundList = document.getElementById('sound-list');
+                const currentSounds = Array.from(soundList.children).map(button => button.textContent);
+                const newSounds = Object.keys(data);
+
+                if (JSON.stringify(currentSounds) === JSON.stringify(newSounds)) {
+                return; // No changes, do nothing
+                }
+
+                soundList.innerHTML = '';
+                for (const sound in data) {
+                const listItem = document.createElement('button');
+                const extension = data[sound];
+                listItem.textContent = sound;
+                listItem.addEventListener('click', () => playSound(sound, extension));
+                listItem.style.display = 'block';
+                soundList.appendChild(listItem);
+                }
+            })
+            .catch(error => console.error('Error fetching sounds:', error));
+        }
+        
+
+        function playSound(sound, extension) {
+            const username = document.getElementById('name').value;
+            sound = sound.replace(/ /g, '%20');
+            console.log('Playing sound:', sound);
+            refreshSoundList();
+            fetch(siteurl + `/api/play/sound/${encodeURIComponent(sound)}/${extension}/${username}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.blob();
+                })
+                .catch(error => console.error('Error fetching sound:', error));
+        }
+    </script>
+</body>
+</html>

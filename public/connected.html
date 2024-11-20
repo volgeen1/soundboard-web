@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soundboard</title>
+</head>
+<body>
+    <h1>Soundboard</h1>
+    <ul id="sound-list"></ul>
+
+    <div class="container">
+        <h1>Connected</h1>
+        <p>You are now connected to the soundboard.</p>
+        <p>Click on a sound to play it.</p>
+    </div>
+
+    <script>
+        const siteurl = window.location.origin;
+        document.addEventListener("DOMContentLoaded", () => {
+        fetch(siteurl + "/api/sounds")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data);
+                const soundList = document.getElementById('sound-list');
+                for (const sound in data) {
+                    const listItem = document.createElement('button');
+                    const extension = data[sound];
+                    listItem.textContent = sound;
+                    listItem.addEventListener('click', () => playSound(sound, extension));
+                    listItem.style.display = 'block';
+                    soundList.appendChild(listItem);
+                }
+            })
+            .catch(error => console.error('Error fetching sounds:', error));
+        });
+
+        function playSound(sound, extension) {
+            sound = sound.replace(/ /g, '%20');
+            console.log('Playing sound:', sound);
+            fetch(siteurl + `/api/play/sound/${encodeURIComponent(sound)}/${extension}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const audio = new Audio(URL.createObjectURL(blob));
+                    audio.play();
+                })
+                .catch(error => console.error('Error fetching sound:', error));
+        }
+    </script>
+</body>
+</html>
