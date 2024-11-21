@@ -181,16 +181,20 @@
         const connectButton = document.getElementById('connect');
         const login = document.querySelector('.login');
         const connected = document.querySelector('.connected');
+        const disconnectButton = document.getElementById('disconnect');
+        disconnectButton.addEventListener('click', () => {
+            window.location.reload();
+        });
         connectButton.addEventListener('click', () => {
             const username = document.getElementById('name').value;
             if (username) {
-                login.style.display = 'none';
-                connected.style.display = 'block';
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
                 socket.onopen = event => {
                     console.log('Connection opened:', event);
                     socket.send(JSON.stringify({ username }));
+                    login.style.display = 'none';
+                    connected.style.display = 'block';
                     refreshButton.click();
                 };
                 socket.onmessage = event => {
@@ -214,11 +218,6 @@
                     login.style.display = 'block';
                     connected.style.display = 'none';
                 };
-                const disconnectButton = document.getElementById('disconnect');
-                disconnectButton.addEventListener('click', () => {
-                    socket.close();
-                    location.reload();
-                });
             }
         });
 
