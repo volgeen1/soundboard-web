@@ -118,6 +118,14 @@
             overflow-y: auto;
             border: 1px solid #180303;
         }
+
+        #stopSounds {
+            background-color: #dc3545;
+        }
+
+        #stopSounds:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -131,6 +139,7 @@
         <div class="sounds">
             <h1>Soundboard</h1>
             <p>Click a sound to play it</p>
+            <button id="stopSounds">Stop all</button>
             <ul id="sound-list"></ul>
         </div>
 
@@ -154,6 +163,7 @@
         const clientList = document.getElementById('client-list');
         const clientsDiv = document.querySelector('.clients');
         const siteurl = window.location.origin;
+        const currentlyPlaying = new Array();
 
         refreshButton.addEventListener('click', () => {
             fetch(siteurl + "/api/clients")
@@ -212,6 +222,12 @@
                     const audio = new Audio(audioUrl);
                     audio.volume = document.getElementById('volume').value / 100;
                     audio.play().catch(error => console.error('Error playing audio:', error));
+                    currentlyPlaying.push(audio);
+                    // remove the audio element after it has finished playing
+                    audio.addEventListener('ended', () => {
+                        audio.remove();
+                        currentlyPlaying.splice(currentlyPlaying.indexOf(audio), 1);
+                    });
                 };
                 socket.onclose = event => {
                     console.log('Connection closed:', event);
@@ -273,12 +289,12 @@
 
                     soundList.innerHTML = '';
                     for (const sound in data) {
-                        const listItem = document.createElement('button');
+                        const playButton = document.createElement('button');
                         const extension = data[sound];
-                        listItem.textContent = sound;
-                        listItem.addEventListener('click', () => playSound(sound, extension));
-                        listItem.style.display = 'block';
-                        soundList.appendChild(listItem);
+                        playButton.textContent = sound;
+                        playButton.addEventListener('click', () => playSound(sound, extension));
+                        playButton.style.display = 'block';
+                        soundList.appendChild(playButton);
                     }
                 })
                 .catch(error => console.error('Error fetching sounds:', error));
@@ -297,6 +313,18 @@
                     return response.blob();
                 })
                 .catch(error => console.error('Error fetching sound:', error));
+        }
+
+        const stopButton = document.getElementById('stopSounds');
+        stopButton.addEventListener('click', () => {
+            stopSound();
+        });
+        function stopSound() {
+            currentlyPlaying.forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.remove();
+            });
         }
     </script>
 </body>
